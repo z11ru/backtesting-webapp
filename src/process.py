@@ -74,7 +74,7 @@ def equity_curve(ticker_symbol, stock_data):
     fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['Lower_Band'], mode='lines', name='Lower Bollinger Band', line=dict(color='orange', width=0.75), opacity=1), row=1, col=1)
 
     # RSI Plot (Second Subplot)
-    fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['RSI'], mode='lines', name='RSI', line=dict(color='purple', width=1), opacity=0.6), row=2, col=1)
+    fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['RSI'], mode='lines', name='RSI', line=dict(color='orange', width=1), opacity=0.6), row=2, col=1)
 
     # Adding Overbought and Oversold lines
     fig.add_hline(y=70, line=dict(color='blue', dash='dash', width=0.75), row=2, col=1)
