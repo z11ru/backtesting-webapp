@@ -18,19 +18,19 @@ def load_data(symbol):
     except FileNotFoundError:
         st.error(f"File not found: {path}")
         return None
-    return stock_data
+    return stock_data[stock_data.index >= '2022-01-01']
 
 # Streamlit app
 def main():
     st.title("Trading Strategy Backtesting")
 
     # Sidebar for input parameters
+    st.sidebar.header("Symbol and Strategy")
+
     ticker_symbol = st.sidebar.selectbox("Ticker Symbol",
                                          ["AAPL", "AMZN", "GOOG", "META", "MSFT", "NVDA", "TSLA"])
     strategy = st.sidebar.selectbox("Trading Strategy",
-                                    ["Mean Reversion - Bollinger",
-                                     "Mean Reversion - RSI",
-                                     "Bollinger-RSI Hybrid",
+                                    ["Bollinger-RSI Hybrid",
                                      "Pretrained Timeseries ML Model"])
 
     st.sidebar.header("Parameters")
@@ -39,6 +39,9 @@ def main():
     rsi_window = st.sidebar.slider("RSI Window (Days)", 5, 30, 14)
     std_dev_multiplier = st.sidebar.slider("Std Dev Multiplier", 1.0, 3.0, 2.0, step=0.25)
 
+    st.sidebar.text("Henry Zhao | github.com/z11ru \nlinkedin.com/in/hrzhao")
+
+    st.subheader(ticker_symbol + " - " + strategy)
     # Load stock data
     stock_data = load_data(ticker_symbol)
 
@@ -50,8 +53,7 @@ def main():
     stock_data['RSI'] = rsi(stock_data['Close'].to_numpy(), rsi_window)
 
     # Display Equity Curve and Indicators
-    st.plotly_chart(equity_curve(stock_data))
-    with st.expander("RSI Calculation"): st.code(rsi_code, language='python')
+    st.plotly_chart(equity_curve(ticker_symbol, stock_data))
 
     # Run backtesting
     results = run_test(stock_data)
@@ -67,19 +69,32 @@ def main():
         fig.add_trace(go.Scatter(x=[trade['EntryTime']], y=[trade['EntryPrice']],
                                 mode='markers', marker=dict(color='green', size=10, symbol='triangle-up'),
                                 name='Entry'))
-        
         # Exit marker
         fig.add_trace(go.Scatter(x=[trade['ExitTime']], y=[trade['ExitPrice']],
                                 mode='markers', marker=dict(color='red', size=10, symbol='triangle-down'),
                                 name='Exit'))
 
     # Update layout
-    fig.update_layout(title='Trades on Price Chart', xaxis_title='Date', yaxis_title='Price')
+    fig.update_layout(title='Trades', xaxis_title='Date', yaxis_title='Price', showlegend=False)
 
     # Display in Streamlit
     st.plotly_chart(fig)
 
-    st.text(results)
+    if st.button('Optimize Parameters'):
+        with st.spinner('Searching parameters... Please wait.'):
+            best_params = optimize_parameters(stock_data)
+
+        # Display the optimized parameters
+        st.markdown(f"**Optimized Parameters:**\n- SMA Period: {best_params['SMA Period']}\n- Std Dev Multiplier: {best_params['Std Dev Multiplier']}\n- RSI Window: {best_params['RSI Window']}")
+
+        # Display a note asking user to adjust sliders
+        st.write("Please adjust the sliders to these optimized values.")
+
+    with st.expander("RSI Calculation"): st.code(rsi_code, language='python')
+
+    with st.expander("Backtesting results"): st.text(results)
+
+    with st.expander("List of Trades"): st.text(results._trades)
 
 if __name__ == "__main__":
     main()
