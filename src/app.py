@@ -1,4 +1,3 @@
-# Streamlit app code structure
 import streamlit as st
 from process import *
 
@@ -65,14 +64,14 @@ def main():
 
     # Loop through the trades and add entry/exit markers
     for _, trade in results._trades.iterrows():
-        # Entry marker
-        fig.add_trace(go.Scatter(x=[trade['EntryTime']], y=[trade['EntryPrice']],
-                                mode='markers', marker=dict(color='green', size=10, symbol='triangle-up'),
-                                name='Entry'))
-        # Exit marker
-        fig.add_trace(go.Scatter(x=[trade['ExitTime']], y=[trade['ExitPrice']],
-                                mode='markers', marker=dict(color='red', size=10, symbol='triangle-down'),
-                                name='Exit'))
+        if trade['Size'] > 0:
+            fig.add_trace(go.Scatter(x=[trade['EntryTime']], y=[trade['EntryPrice']],
+                                    mode='markers', marker=dict(size=10, symbol='triangle-up'),
+                                    name='Buy'))
+        else:
+            fig.add_trace(go.Scatter(x=[trade['EntryTime']], y=[trade['EntryPrice']],
+                                    mode='markers', marker=dict(size=10, symbol='triangle-down'),
+                                    name='Sell'))
 
     # Update layout
     fig.update_layout(title='Trades', xaxis_title='Date', yaxis_title='Price', showlegend=False)
