@@ -21,6 +21,8 @@ def load_data(symbol):
 
 # Streamlit app
 def main():
+    st.set_page_config(layout="wide")
+
     st.title("Trading Strategy Backtesting")
 
     # Sidebar for input parameters
@@ -51,33 +53,11 @@ def main():
     stock_data['Lower_Band'] = stock_data['SMA'] - (stock_data['STD'] * std_dev_multiplier)
     stock_data['RSI'] = rsi(stock_data['Close'].to_numpy(), rsi_window)
 
-    # Display Equity Curve and Indicators
-    st.plotly_chart(equity_curve(ticker_symbol, stock_data))
-
     # Run backtesting
     results = run_test(stock_data)
 
     # Display results
-
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['Close'], mode='lines', name='Close Price'))
-
-    # Loop through the trades and add entry/exit markers
-    for _, trade in results._trades.iterrows():
-        if trade['Size'] > 0:
-            fig.add_trace(go.Scatter(x=[trade['EntryTime']], y=[trade['EntryPrice']],
-                                    mode='markers', marker=dict(size=10, symbol='triangle-up'),
-                                    name='Buy'))
-        else:
-            fig.add_trace(go.Scatter(x=[trade['EntryTime']], y=[trade['EntryPrice']],
-                                    mode='markers', marker=dict(size=10, symbol='triangle-down'),
-                                    name='Sell'))
-
-    # Update layout
-    fig.update_layout(title='Trades', xaxis_title='Date', yaxis_title='Price', showlegend=False)
-
-    # Display in Streamlit
-    st.plotly_chart(fig)
+    st.plotly_chart(bollinger_curve(results, stock_data, results), use_container_width=True)
 
     if st.button('Optimize Parameters'):
         with st.spinner('Searching parameters... Please wait.'):

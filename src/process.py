@@ -62,7 +62,7 @@ rsi_code = '''
             return rsi
         '''
 
-def equity_curve(ticker_symbol, stock_data):
+def bollinger_curve(ticker_symbol, stock_data, results):
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
                         vertical_spacing=0.05,
                         row_heights=[0.7, 0.3])
@@ -72,6 +72,27 @@ def equity_curve(ticker_symbol, stock_data):
     fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['SMA'], mode='lines', name='SMA', line=dict(color='light blue', width=0.75), opacity=1), row=1, col=1)
     fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['Upper_Band'], mode='lines', name='Upper Bollinger Band', line=dict(color='red', width=0.75), opacity=1), row=1, col=1)
     fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['Lower_Band'], mode='lines', name='Lower Bollinger Band', line=dict(color='orange', width=0.75), opacity=1), row=1, col=1)
+
+    for _, trade in results._trades.iterrows():
+        color = 'green' if trade['PnL'] > 0 else 'red'
+        entry_symbol = 'triangle-up' if trade['Size'] > 0 else 'triangle-down'
+        exit_symbol = 'triangle-down' if trade['Size'] > 0 else 'triangle-up'
+
+        # Add entry point
+        fig.add_trace(go.Scatter(x=[trade['EntryTime']], y=[trade['EntryPrice']],
+                                 mode='markers', marker=dict(color='black', size=13, symbol=entry_symbol),
+                                 name='Entry Point'))
+
+        # Add exit point
+        fig.add_trace(go.Scatter(x=[trade['ExitTime']], y=[trade['ExitPrice']],
+                                 mode='markers', marker=dict(color=color, size=13, symbol=exit_symbol),
+                                 name='Exit Point'))
+
+        # Add dashed line between entry and exit
+        fig.add_trace(go.Scatter(x=[trade['EntryTime'], trade['ExitTime']], 
+                                 y=[trade['EntryPrice'], trade['ExitPrice']],
+                                 mode='lines', line=dict(color=color, dash='dash'), 
+                                 name='Trade Line'))
 
     # RSI Plot (Second Subplot)
     fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['RSI'], mode='lines', name='RSI', line=dict(color='orange', width=1), opacity=0.6), row=2, col=1)
@@ -84,8 +105,36 @@ def equity_curve(ticker_symbol, stock_data):
     fig.update_yaxes(range=[0, 100], row=2, col=1)
 
     # Update layout
-    fig.update_layout(title=ticker_symbol + " Indicators", height = 800, showlegend=False)
+    fig.update_layout(title='results', height = 800, showlegend=False)
 
+    return fig
+
+def trades_curve(results, stock_data):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['Close'], mode='lines', name='Close Price'))
+
+    for _, trade in results._trades.iterrows():
+        color = 'green' if trade['PnL'] > 0 else 'red'
+        entry_symbol = 'triangle-up' if trade['Size'] > 0 else 'triangle-down'
+        exit_symbol = 'triangle-down' if trade['Size'] > 0 else 'triangle-up'
+
+        # Add entry point
+        fig.add_trace(go.Scatter(x=[trade['EntryTime']], y=[trade['EntryPrice']],
+                                 mode='markers', marker=dict(color='black', size=13, symbol=entry_symbol),
+                                 name='Entry Point'))
+
+        # Add exit point
+        fig.add_trace(go.Scatter(x=[trade['ExitTime']], y=[trade['ExitPrice']],
+                                 mode='markers', marker=dict(color=color, size=13, symbol=exit_symbol),
+                                 name='Exit Point'))
+
+        # Add dashed line between entry and exit
+        fig.add_trace(go.Scatter(x=[trade['EntryTime'], trade['ExitTime']], 
+                                 y=[trade['EntryPrice'], trade['ExitPrice']],
+                                 mode='lines', line=dict(color=color, dash='dash'), 
+                                 name='Trade Line'))
+
+    fig.update_layout(title='Trades', xaxis_title='Date', yaxis_title='Price', showlegend=False)
     return fig
 
 class HybridStrategy(Strategy):
@@ -95,11 +144,23 @@ class HybridStrategy(Strategy):
         self.rsi = self.I(lambda x: x['RSI'], self.data.df)
 
     def next(self):
-        if crossover(self.data.Close, self.lower_band) and self.rsi[-1] < 30:
-            self.buy()
+        # For long positions
+        if self.position.is_long:
+            if crossover(self.data.Close, self.lower_band) and self.rsi[-1] > 70:
+                self.position.close()
 
-        elif crossover(self.upper_band, self.data.Close) and self.rsi[-1] > 70:
-            self.sell()
+        # For short positions
+        elif self.position.is_short:
+            if crossover(self.upper_band, self.data.Close) and self.rsi[-1] < 30:
+                self.position.close()
+
+        # Entry conditions
+        else:
+            if crossover(self.data.Close, self.lower_band) and self.rsi[-1] < 30:
+                self.buy()
+            elif crossover(self.upper_band, self.data.Close) and self.rsi[-1] > 70:
+                self.sell()
+
 
 def run_test(stock_data):
     bt = Backtest(stock_data, HybridStrategy, cash=10000, commission=.002, exclusive_orders=True)
