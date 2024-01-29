@@ -1,7 +1,9 @@
-from backtesting import Backtest, Strategy
-from backtesting.lib import crossover
 import pandas as pd
 import numpy as np
+
+from backtesting import Backtest, Strategy
+from backtesting.lib import crossover
+
 import plotly as plt
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
@@ -33,36 +35,7 @@ def rsi(array, window):
 
     return rsi
 
-rsi_code = '''
-        def rsi(array, window):
-            deltas = np.diff(array)
-            seed = deltas[:window+1]
-            up = seed[seed >= 0].sum()/window
-            down = -seed[seed < 0].sum()/window
-            rs = up/down
-            rsi = np.zeros_like(array)
-            rsi[:window] = 100. - 100./(1. + rs)
-
-            for i in range(window, len(array)):
-                delta = deltas[i - 1]
-
-                if delta > 0:
-                    upval = delta
-                    downval = 0.
-                else:
-                    upval = 0.
-                    downval = -delta
-
-                up = (up*(window - 1) + upval)/window
-                down = (down*(window - 1) + downval)/window
-
-                rs = up/down
-                rsi[i] = 100. - 100./(1. + rs)
-
-            return rsi
-        '''
-
-def bollinger_curve(ticker_symbol, stock_data, results):
+def bollinger_curve(stock_data, results):
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
                         vertical_spacing=0.05,
                         row_heights=[0.7, 0.3])
@@ -80,7 +53,7 @@ def bollinger_curve(ticker_symbol, stock_data, results):
 
         # Add entry point
         fig.add_trace(go.Scatter(x=[trade['EntryTime']], y=[trade['EntryPrice']],
-                                 mode='markers', marker=dict(color='black', size=13, symbol=entry_symbol),
+                                 mode='markers', marker=dict(color='orange', size=13, symbol=entry_symbol),
                                  name='Entry Point'))
 
         # Add exit point
@@ -168,25 +141,28 @@ def run_test(stock_data):
     return stats
 
 def optimize_parameters(stock_data):
-
     strategy = HybridStrategy
-
-    sma_periods = range(5, 50, 1)  # For example, from 5 to 50 in steps of 5
-    std_dev_multipliers = [1, 2, 3]  # Standard deviation multipliers
-    rsi_windows = range(10, 30, 1)  # RSI window periods
+    sma_periods = range(5, 50, 1)
+    std_dev_multipliers = [1, 2, 3]
+    rsi_windows = range(10, 30, 1)
 
     best_sharpe = -float('inf')
     best_params = {}
 
+    # Pre-calculate RSI for all windows
+    rsi_values = {window: rsi(stock_data['Close'].to_numpy(), window) for window in rsi_windows}
+
     for sma_period in sma_periods:
+        # Calculate SMA and STD once for each sma_period
+        stock_data['SMA'] = stock_data['Close'].rolling(window=sma_period).mean()
+        stock_data['STD'] = stock_data['Close'].rolling(window=sma_period).std()
+
         for std_dev_multiplier in std_dev_multipliers:
+            stock_data['Upper_Band'] = stock_data['SMA'] + (stock_data['STD'] * std_dev_multiplier)
+            stock_data['Lower_Band'] = stock_data['SMA'] - (stock_data['STD'] * std_dev_multiplier)
+
             for rsi_window in rsi_windows:
-                # Calculate Bollinger Bands and RSI for the current set of parameters
-                stock_data['SMA'] = stock_data['Close'].rolling(window=sma_period).mean()
-                stock_data['STD'] = stock_data['Close'].rolling(window=sma_period).std()
-                stock_data['Upper_Band'] = stock_data['SMA'] + (stock_data['STD'] * std_dev_multiplier)
-                stock_data['Lower_Band'] = stock_data['SMA'] - (stock_data['STD'] * std_dev_multiplier)
-                stock_data['RSI'] = rsi(stock_data['Close'].to_numpy(), rsi_window)
+                stock_data['RSI'] = rsi_values[rsi_window]
 
                 # Run backtest
                 bt = Backtest(stock_data, strategy, cash=10000, commission=.002)
