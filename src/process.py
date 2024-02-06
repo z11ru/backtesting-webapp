@@ -35,7 +35,7 @@ def rsi(array, window):
 
     return rsi
 
-def bollinger_curve(stock_data, results):
+def plot_curve(stock_data, results):
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
                         vertical_spacing=0.05,
                         row_heights=[0.7, 0.3])
@@ -78,86 +78,82 @@ def bollinger_curve(stock_data, results):
     fig.update_yaxes(range=[0, 100], row=2, col=1)
 
     # Update layout
-    fig.update_layout(title='results', height = 800, showlegend=False)
+    fig.update_layout(title='Results', height = 800, showlegend=False)
 
-    return fig
-
-def trades_curve(results, stock_data):
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=stock_data.index, y=stock_data['Close'], mode='lines', name='Close Price'))
-
-    for _, trade in results._trades.iterrows():
-        color = 'green' if trade['PnL'] > 0 else 'red'
-        entry_symbol = 'triangle-up' if trade['Size'] > 0 else 'triangle-down'
-        exit_symbol = 'triangle-down' if trade['Size'] > 0 else 'triangle-up'
-
-        # Add entry point
-        fig.add_trace(go.Scatter(x=[trade['EntryTime']], y=[trade['EntryPrice']],
-                                 mode='markers', marker=dict(color='black', size=13, symbol=entry_symbol),
-                                 name='Entry Point'))
-
-        # Add exit point
-        fig.add_trace(go.Scatter(x=[trade['ExitTime']], y=[trade['ExitPrice']],
-                                 mode='markers', marker=dict(color=color, size=13, symbol=exit_symbol),
-                                 name='Exit Point'))
-
-        # Add dashed line between entry and exit
-        fig.add_trace(go.Scatter(x=[trade['EntryTime'], trade['ExitTime']], 
-                                 y=[trade['EntryPrice'], trade['ExitPrice']],
-                                 mode='lines', line=dict(color=color, dash='dash'), 
-                                 name='Trade Line'))
-
-    fig.update_layout(title='Trades', xaxis_title='Date', yaxis_title='Price', showlegend=False)
     return fig
 
 class HybridStrategy(Strategy):
-    def init(self):
+    use_rsi = True
+    use_bollinger = True
+    profit_limit = None
+    drawdown_limit = None
+
+    @classmethod
+    def set_parameters(cls, use_rsi, use_bollinger, profit_limit, drawdown_limit):
+        cls.use_rsi = use_rsi
+        cls.use_bollinger = use_bollinger
+        cls.profit_limit = profit_limit
+        cls.drawdown_limit = drawdown_limit
+
+    def init(self, use_rsi=True, use_bollinger=True, profit_limit=None, drawdown_limit=None):
+        # Technical indicators
         self.upper_band = self.I(lambda x: x['Upper_Band'], self.data.df)
         self.lower_band = self.I(lambda x: x['Lower_Band'], self.data.df)
         self.rsi = self.I(lambda x: x['RSI'], self.data.df)
 
+        # User selections
+        self.use_rsi = use_rsi
+        self.use_bollinger = use_bollinger
+
+        # Profit/drawdown limits
+        self.profit_limit = profit_limit
+        self.drawdown_limit = drawdown_limit
+
+        # Conditions state
         self.bollinger_condition_met = False
         self.rsi_condition_met = False
 
+        # Entry price for calculating profit/drawdown
+        self.entry_price = None
+
     def next(self):
-        ###########################
-        # Entry Conditions
-        ###########################
+        if self.position:
+            # Calculate current profit or drawdown
+            current_profit_drawdown = self.position.pl
 
-        # For long positions
-        if self.position.is_long:
-            if crossover(self.data.Close, self.lower_band) or self.rsi[-1] > 70:
+            # Check for profit or drawdown limit to close the position
+            if (self.profit_limit and current_profit_drawdown >= self.profit_limit) or \
+            (self.drawdown_limit and current_profit_drawdown <= -self.drawdown_limit):
                 self.position.close()
-        # For short positions
-        elif self.position.is_short:
-            if crossover(self.upper_band, self.data.Close) or self.rsi[-1] < 30:
-                self.position.close()
+                self.entry_price = None
+                return  # Exit this iteration to avoid opening a new position immediately
 
-        ###########################
-        # Entry Conditions
-        ###########################
+        # Entry conditions based on user selection
+        enter_long = False
+        enter_short = False
 
-        # Check if Bollinger Band condition is met (Close crosses over lower band for buy, upper band for sell)
-        if crossover(self.data.Close, self.lower_band):
-            self.bollinger_condition_met = True
-        elif crossover(self.upper_band, self.data.Close):
-            self.bollinger_condition_met = False  # Reset condition if price crosses upper band
-        
-        # Check if RSI condition is met (RSI below 30 for buy, above 70 for sell)
-        if self.rsi[-1] < 30:
-            self.rsi_condition_met = True
-        elif self.rsi[-1] > 70:
-            self.rsi_condition_met = False  # Reset condition if RSI goes above 70
-        
-        # Execute trades based on combined conditions
-        if self.bollinger_condition_met and crossover(self.data.Close, self.lower_band):
+        if self.use_bollinger:
+            if crossover(self.data.Close, self.lower_band):
+                enter_long = True
+            elif crossover(self.upper_band, self.data.Close):
+                enter_short = True
+
+        if self.use_rsi:
+            if self.rsi[-1] < 30:
+                enter_long = True
+            elif self.rsi[-1] > 70:
+                enter_short = True
+
+        # Execute trades based on conditions
+        if enter_long and not self.position.is_long:
             self.buy()
-        elif self.rsi_condition_met and crossover(self.upper_band, self.data.Close):
+        elif enter_short and not self.position.is_short:
             self.sell()
 
-
-def run_test(stock_data):
-    bt = Backtest(stock_data, HybridStrategy, cash=10000, commission=.002, exclusive_orders=True)
+def run_test(bollinger, rsi, profit, drawdown, stock_data):
+    # Set strategy parameters before running the backtest
+    HybridStrategy.set_parameters(use_rsi=rsi, use_bollinger=bollinger, profit_limit=profit, drawdown_limit=drawdown)
+    bt = Backtest(stock_data, HybridStrategy, cash=10000, exclusive_orders=True)
     stats = bt.run()
     return stats
 

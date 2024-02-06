@@ -42,17 +42,12 @@ def main():
                                      min_value=start_date,
                                      max_value=pd.to_datetime('2024-01-01'))
     
-    st.sidebar.header("Entry Conditions")
+    st.sidebar.header("Conditions")
 
-    entry_use_bollinger_band = st.sidebar.checkbox("Bollinger Band", key='entry1')
-    entry_use_rsi = st.sidebar.checkbox("RSI", key='entry2')
-
-    st.sidebar.header("Exit Conditions")
-
-    exit_use_bollinger_band = st.sidebar.checkbox("Bollinger Band", key='exit1')
-    exit_use_rsi = st.sidebar.checkbox("RSI", key='exit2')
-    exit_use_max_profit = st.sidebar.checkbox("Profit Limit", key='exit_profit')
-    exit_use_max_drawdown = st.sidebar.checkbox("Drawdown Limit", key='exit_drawdown')
+    use_bollinger_band = st.sidebar.checkbox("Bollinger Band", value=True)
+    use_rsi = st.sidebar.checkbox("RSI", value=True)
+    max_profit = st.sidebar.number_input("Profit Limit (%)", value=25) / 100  # Convert percentage to decimal
+    max_drawdown = st.sidebar.number_input("Drawdown Limit (%)", value=-50) / 100  # Convert percentage to decimal
 
     html_content = """
     <style>
@@ -97,7 +92,7 @@ def main():
     stock_data['RSI'] = rsi(stock_data['Close'].to_numpy(), rsi_window)
 
     # Run backtesting
-    results = run_test(stock_data)
+    results = run_test(use_bollinger_band, use_rsi, max_profit, max_drawdown, stock_data)
 
     # Prepare metrics data
     metrics_data = {
@@ -122,7 +117,7 @@ def main():
     metrics_df = pd.DataFrame(metrics_data)
 
     # Display results
-    with left_pane: st.plotly_chart(bollinger_curve(stock_data, results), use_container_width=True)
+    with left_pane: st.plotly_chart(plot_curve(stock_data, results), use_container_width=True)
     with right_pane:
         if st.button('Optimize Parameters'):
             with st.spinner('Searching parameters... Please wait.'):
@@ -130,8 +125,7 @@ def main():
             st.markdown(f"**Optimized Parameters:**\n- SMA Period: {best_params['SMA Period']}\n- Std Dev Multiplier: {best_params['Std Dev Multiplier']}\n- RSI Window: {best_params['RSI Window']}")
             st.write("Please adjust the sliders to these optimized values.")
 
-        st.subheader("Performance Metrics")
-        st.write(metrics_df, index=False)
+        st.markdown(metrics_df.style.hide(axis="index").to_html(), unsafe_allow_html=True)
 
     with st.expander("List of Trades"): st.text(results._trades)
 if __name__ == "__main__":
