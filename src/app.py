@@ -44,21 +44,15 @@ def main():
     
     st.sidebar.header("Entry Conditions")
 
-    entry_use_support_line = st.sidebar.checkbox("Support/Resistance", key='entry1')
-    entry_use_bollinger_band = st.sidebar.checkbox("Bollinger Band", key='entry2')
-    entry_use_rsi = st.sidebar.checkbox("RSI", key='entry3')
-    entry_use_MACD = st.sidebar.checkbox("MACD", key='entry4')
-    entry_use_oscillator = st.sidebar.checkbox("Stochastic Oscillator", key='entry5')
+    entry_use_bollinger_band = st.sidebar.checkbox("Bollinger Band", key='entry1')
+    entry_use_rsi = st.sidebar.checkbox("RSI", key='entry2')
 
     st.sidebar.header("Exit Conditions")
 
-    exit_use_support_line = st.sidebar.checkbox("Support/Resistance", key='exit1')
-    exit_use_bollinger_band = st.sidebar.checkbox("Bollinger Band", key='exit2')
-    exit_use_rsi = st.sidebar.checkbox("RSI", key='exit3')
-    exit_use_MACD = st.sidebar.checkbox("MACD", key='exit4')
-    exit_use_oscillator = st.sidebar.checkbox("Stochastic Oscillator", key='exit5')
-    exit_use_max_profit = st.sidebar.checkbox("Profit Limit", key='exit6')
-    exit_use_max_drawdown = st.sidebar.checkbox("Drawdown Limit", key='exit7')
+    exit_use_bollinger_band = st.sidebar.checkbox("Bollinger Band", key='exit1')
+    exit_use_rsi = st.sidebar.checkbox("RSI", key='exit2')
+    exit_use_max_profit = st.sidebar.checkbox("Profit Limit", key='exit_profit')
+    exit_use_max_drawdown = st.sidebar.checkbox("Drawdown Limit", key='exit_drawdown')
 
     html_content = """
     <style>
@@ -105,6 +99,29 @@ def main():
     # Run backtesting
     results = run_test(stock_data)
 
+    # Prepare metrics data
+    metrics_data = {
+        'Metric': [
+            'Final Equity',
+            'Peak Equity',
+            'Return',
+            'Buy & Hold Return',
+            'Max. Drawdown',
+            'Sharpe Ratio'
+        ],
+        'Value': [
+            f"{results['Equity Final [$]']:.2f}",
+            f"{results['Equity Peak [$]']:.2f}",
+            f"{results['Return [%]']:.2f}%",
+            f"{results['Buy & Hold Return [%]']:.2f}%",
+            f"{results['Max. Drawdown [%]']:.2f}%",
+            'N/A' if pd.isna(results['Sharpe Ratio']) else f"{results['Sharpe Ratio']:.2f}"
+        ]
+    }
+
+    metrics_df = pd.DataFrame(metrics_data)
+
+    # Display results
     with left_pane: st.plotly_chart(bollinger_curve(stock_data, results), use_container_width=True)
     with right_pane:
         if st.button('Optimize Parameters'):
@@ -113,7 +130,8 @@ def main():
             st.markdown(f"**Optimized Parameters:**\n- SMA Period: {best_params['SMA Period']}\n- Std Dev Multiplier: {best_params['Std Dev Multiplier']}\n- RSI Window: {best_params['RSI Window']}")
             st.write("Please adjust the sliders to these optimized values.")
 
-        with st.expander("Backtesting results"): st.text(results)
+        st.subheader("Performance Metrics")
+        st.write(metrics_df, index=False)
 
     with st.expander("List of Trades"): st.text(results._trades)
 if __name__ == "__main__":

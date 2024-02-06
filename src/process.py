@@ -116,23 +116,44 @@ class HybridStrategy(Strategy):
         self.lower_band = self.I(lambda x: x['Lower_Band'], self.data.df)
         self.rsi = self.I(lambda x: x['RSI'], self.data.df)
 
+        self.bollinger_condition_met = False
+        self.rsi_condition_met = False
+
     def next(self):
+        ###########################
+        # Entry Conditions
+        ###########################
+
         # For long positions
         if self.position.is_long:
-            if crossover(self.data.Close, self.lower_band) and self.rsi[-1] > 70:
+            if crossover(self.data.Close, self.lower_band) or self.rsi[-1] > 70:
                 self.position.close()
-
         # For short positions
         elif self.position.is_short:
-            if crossover(self.upper_band, self.data.Close) and self.rsi[-1] < 30:
+            if crossover(self.upper_band, self.data.Close) or self.rsi[-1] < 30:
                 self.position.close()
 
-        # Entry conditions
-        else:
-            if crossover(self.data.Close, self.lower_band) and self.rsi[-1] < 30:
-                self.buy()
-            elif crossover(self.upper_band, self.data.Close) and self.rsi[-1] > 70:
-                self.sell()
+        ###########################
+        # Entry Conditions
+        ###########################
+
+        # Check if Bollinger Band condition is met (Close crosses over lower band for buy, upper band for sell)
+        if crossover(self.data.Close, self.lower_band):
+            self.bollinger_condition_met = True
+        elif crossover(self.upper_band, self.data.Close):
+            self.bollinger_condition_met = False  # Reset condition if price crosses upper band
+        
+        # Check if RSI condition is met (RSI below 30 for buy, above 70 for sell)
+        if self.rsi[-1] < 30:
+            self.rsi_condition_met = True
+        elif self.rsi[-1] > 70:
+            self.rsi_condition_met = False  # Reset condition if RSI goes above 70
+        
+        # Execute trades based on combined conditions
+        if self.bollinger_condition_met and crossover(self.data.Close, self.lower_band):
+            self.buy()
+        elif self.rsi_condition_met and crossover(self.upper_band, self.data.Close):
+            self.sell()
 
 
 def run_test(stock_data):
