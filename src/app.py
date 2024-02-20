@@ -16,7 +16,13 @@ def load_data(symbol, start_date, end_date):
         stock_data = pd.read_csv(path, parse_dates=['Date'])
         # Filter the data based on the start and end dates
         mask = (stock_data['Date'] >= pd.to_datetime(start_date)) & (stock_data['Date'] <= pd.to_datetime(end_date))
-        return stock_data.loc[mask]
+        stock_data = stock_data.loc[mask]
+
+        # Set the date as the index
+        stock_data['Date'] = pd.to_datetime(stock_data['Date'])
+        stock_data.set_index('Date', inplace=True)
+
+        return stock_data
     except FileNotFoundError:
         st.error(f"File not found: {path}")
         return pd.DataFrame()
@@ -122,11 +128,16 @@ def main():
         if st.button('Optimize Parameters'):
             with st.spinner('Searching parameters... Please wait.'):
                 best_params = optimize_parameters(stock_data)
-            st.markdown(f"**Optimized Parameters:**\n- SMA Period: {best_params['SMA Period']}\n- Std Dev Multiplier: {best_params['Std Dev Multiplier']}\n- RSI Window: {best_params['RSI Window']}")
+            st.markdown(f"**Optimized Parameters:**\n- SMA Period: \
+                        {best_params['SMA Period']}\n- Std Dev Multiplier: \
+                        {best_params['Std Dev Multiplier']}\n- RSI Window: \
+                        {best_params['RSI Window']}")
             st.write("Please adjust the sliders to these optimized values.")
 
         st.markdown(metrics_df.style.hide(axis="index").to_html(), unsafe_allow_html=True)
 
     with st.expander("List of Trades"): st.text(results._trades)
+
+    
 if __name__ == "__main__":
     main()
