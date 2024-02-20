@@ -152,7 +152,7 @@ class HybridStrategy(Strategy):
 
 def run_test(bollinger, rsi, profit, drawdown, stock_data):
     # Set strategy parameters before running the backtest
-    HybridStrategy.set_parameters(use_rsi=rsi, use_bollinger=bollinger, profit_limit=profit, drawdown_limit=drawdown)
+    HybridStrategy.set_parameters(rsi, bollinger, profit, drawdown)
     bt = Backtest(stock_data, HybridStrategy, cash=10000, exclusive_orders=True)
     stats = bt.run()
     return stats
