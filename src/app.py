@@ -8,10 +8,14 @@ import os
 # Load and process stock data
 @st.cache_data
 def load_data(symbol, start_date, end_date):
+
+    # Get data folder directory
     current_dir = os.path.dirname(__file__)
     data_dir = os.path.join(current_dir, '..', 'data')
+    # Get stock data file path by appending filename to data folder directory
     file_name = f'{symbol}_stock_data.csv'
     path = os.path.join(data_dir, file_name)
+
     try:
         stock_data = pd.read_csv(path, parse_dates=['Date'])
         # Filter the data based on the start and end dates
@@ -23,6 +27,7 @@ def load_data(symbol, start_date, end_date):
         stock_data.set_index('Date', inplace=True)
 
         return stock_data
+    
     except FileNotFoundError:
         st.error(f"File not found: {path}")
         return pd.DataFrame()

@@ -7,9 +7,6 @@ The Strategy Backtesting Webapp is a tool designed to backtest trading strategie
 
 ![Demo](assets/screenshot.png)
 
-## Indicator Calculations
-The `process.py` module is responsible for calculating the RSI and Bollinger Bands indicators. These are calculated without the use of external libraries. The RSI is calculated using the average gain and average loss over a specified period of time, while the Bollinger Bands are calculated using the standard deviation of the closing prices and a specified number of standard deviations.
-
 ## How to Use It
 The purpose of the Strategy Backtesting Webapp is to allow users to test and evaluate different trading strategies using historical market data. Users can upload their own data or use preloaded datasets, specify the parameters for the RSI and Bollinger Bands indicators, and analyze the performance of their strategies.
 
@@ -26,6 +23,9 @@ The Strategy Backtesting Webapp allows users to customize the parameters for the
 - RSI Period: Specifies the number of days in the period used to calculate the RSI. A shorter period may result in more frequent trading signals, while a longer period may provide more reliable signals but with fewer opportunities.
 - Bollinger Bands Period: Determines the number of days in the period used to calculate the Bollinger Bands. A shorter period may result in noisier bands and more frequent trading signals, while a longer period may result in smoother bands and fewer signals.
 - Bollinger Bands Standard Deviation: Specifies the number of standard deviations used to calculate the upper and lower bands. A higher standard deviation will result in wider bands and fewer trading signals, while a lower standard deviation will result in narrower bands and more signals.
+
+## Indicator Calculations
+The `process.py` module is responsible for calculating the RSI and Bollinger Bands indicators. These are calculated without the use of external libraries. The RSI is calculated using the average gain and average loss over a specified period of time, while the Bollinger Bands are calculated using the standard deviation of the closing prices and a specified number of standard deviations.
 
 ### Calculation of RSI
 ```python
